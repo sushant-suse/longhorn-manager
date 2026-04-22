@@ -29,8 +29,6 @@ import (
 )
 
 const (
-	// defaultStaleReplicaTimeout set to 48 hours (2880 minutes)
-	defaultStaleReplicaTimeout                         = 2880
 	defaultStorageClassDisableRevisionCounterParameter = true
 
 	defaultForceUmountTimeout = 30 * time.Second
@@ -100,15 +98,12 @@ func getVolumeOptions(volumeID string, volOptions map[string]string) (*longhornc
 	vol := &longhornclient.Volume{}
 
 	if staleReplicaTimeout, ok := volOptions["staleReplicaTimeout"]; ok {
-		srt, err := strconv.Atoi(staleReplicaTimeout)
-		if err != nil {
-			return nil, errors.Wrap(err, "invalid parameter staleReplicaTimeout")
-		}
-		vol.StaleReplicaTimeout = int64(srt)
-	}
-	if vol.StaleReplicaTimeout <= 0 {
-		vol.StaleReplicaTimeout = defaultStaleReplicaTimeout
-	}
+        srt, err := strconv.Atoi(staleReplicaTimeout)
+        if err != nil {
+            return nil, errors.Wrap(err, "invalid parameter staleReplicaTimeout")
+        }
+        vol.StaleReplicaTimeout = int64(srt)
+    }
 
 	if share, ok := volOptions["share"]; ok {
 		isShared, err := strconv.ParseBool(share)
