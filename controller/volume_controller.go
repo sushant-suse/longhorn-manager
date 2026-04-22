@@ -1059,6 +1059,16 @@ func (c *VolumeController) cleanupReplicas(v *longhorn.Volume, es map[string]*lo
 }
 
 func (c *VolumeController) cleanupCorruptedOrStaleReplicas(v *longhorn.Volume, rs map[string]*longhorn.Replica) error {
+	// Fetch settings once here to pass into shouldCleanUpFailedReplica (O(1) vs O(N) optimization)
+	staleReplicaTimeoutSetting, err := c.ds.GetSettingAsInt(types.SettingNameStaleReplicaTimeout)
+	if err != nil {
+		staleReplicaTimeoutSetting = 0
+	}
+	replenishmentWaitIntervalSetting, err := c.ds.GetSettingAsInt(types.SettingNameReplicaReplenishmentWaitInterval)
+	if err != nil {
+		replenishmentWaitIntervalSetting = 0
+	}
+
 	// See comments for isSafeAsLastReplica for an explanation of why we call getSafeAsLastReplicaCount instead of
 	// getHealthyAndActiveReplicaCount here.
 	safeAsLastReplicaCount := getSafeAsLastReplicaCount(rs)
@@ -1089,7 +1099,8 @@ func (c *VolumeController) cleanupCorruptedOrStaleReplicas(v *longhorn.Volume, r
 			continue
 		}
 
-		if c.shouldCleanUpFailedReplica(v, r, safeAsLastReplicaCount) {
+		// Pass the pre-fetched settings as arguments
+		if c.shouldCleanUpFailedReplica(v, r, safeAsLastReplicaCount, int(staleReplicaTimeoutSetting), int(replenishmentWaitIntervalSetting)) {
 			log.WithField("replica", r.Name).Info("Cleaning up corrupted, staled replica")
 			if err := c.deleteReplica(r, rs); err != nil {
 				return errors.Wrapf(err, "failed to clean up staled replica %v", r.Name)
@@ -5370,7 +5381,7 @@ func (c *VolumeController) ReconcilePersistentVolume(volume *longhorn.Volume) er
 	return nil
 }
 
-func (c *VolumeController) shouldCleanUpFailedReplica(v *longhorn.Volume, r *longhorn.Replica, safeAsLastReplicaCount int) bool {
+func (c *VolumeController) shouldCleanUpFailedReplica(v *longhorn.Volume, r *longhorn.Replica, safeAsLastReplicaCount int, staleReplicaTimeoutSetting, replenishmentWaitIntervalSetting int) bool {
 	log := getLoggerForVolume(c.logger, v).WithField("replica", r.Name)
 
 	// Even if healthyAt == "", lastHealthyAt != "" indicates this replica has some (potentially invalid) data. We MUST
@@ -5384,30 +5395,18 @@ func (c *VolumeController) shouldCleanUpFailedReplica(v *longhorn.Volume, r *lon
 		log.Warnf("Replica %v failed to rebuild too many times", r.Name)
 		return true
 	}
-	
-	// Get the global stale replica timeout setting
-	staleReplicaTimeoutSetting, err := c.ds.GetSettingAsInt(types.SettingNameStaleReplicaTimeout)
-	if err != nil {
-		log.WithError(err).Warnf("Failed to get setting %v, fallback to 0", types.SettingNameStaleReplicaTimeout)
-	}
-
-	// Get the global replenishment wait interval (in seconds)
-	replenishmentWaitIntervalSetting, err := c.ds.GetSettingAsInt(types.SettingNameReplicaReplenishmentWaitInterval)
-	if err != nil {
-		log.WithError(err).Warnf("Failed to get setting %v, fallback to 0", types.SettingNameReplicaReplenishmentWaitInterval)
-	}
 
 	// Determine the base timeout: Volume Spec takes precedence over the Global Setting
-	timeout := int(staleReplicaTimeoutSetting)
+	timeout := staleReplicaTimeoutSetting
 	if v.Spec.StaleReplicaTimeout > 0 {
-		timeout = v.Spec.StaleReplicaTimeout
+		timeout = int(v.Spec.StaleReplicaTimeout)
 	}
 
 	// Respect Replica Replenishment Wait Interval:
 	// Since replenishment is in seconds and timeout is in minutes, we convert and round up.
 	// This ensures we never clean up a replica that the replenishment logic is still considering.
-	replenishmentWaitInMinutes := int(replenishmentWaitIntervalSetting / 60)
-	if replenishmentWaitIntervalSetting%60 != 0 {
+	replenishmentWaitInMinutes := replenishmentWaitIntervalSetting / 60
+	if replenishmentWaitIntervalSetting > 0 && replenishmentWaitIntervalSetting%60 != 0 {
 		replenishmentWaitInMinutes++
 	}
 
@@ -5415,13 +5414,12 @@ func (c *VolumeController) shouldCleanUpFailedReplica(v *longhorn.Volume, r *lon
 		timeout = replenishmentWaitInMinutes
 	}
 
-	// Apply the calculated timeout
-	if timeout > 0 &&
-		util.TimestampAfterTimeout(r.Spec.FailedAt, time.Duration(timeout)*time.Minute) {
+	// Apply the calculated timeout. A timeout of 0 means immediate cleanup.
+	if timeout >= 0 && util.TimestampAfterTimeout(r.Spec.FailedAt, time.Duration(timeout)*time.Minute) {
 		log.Warnf("Replica %v failed too long ago (%v minutes) to be useful during a rebuild", r.Name, timeout)
 		return true
 	}
-	
+
 	// Failed for race condition at upgrading when waiting for instance-manager-r to start. Can never become healthy.
 	if r.Spec.Image != v.Spec.Image {
 		log.Warnf("Replica %v image %v is different from volume image %v", r.Name, r.Spec.Image, v.Spec.Image)

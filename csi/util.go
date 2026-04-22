@@ -98,12 +98,16 @@ func getVolumeOptions(volumeID string, volOptions map[string]string) (*longhornc
 	vol := &longhornclient.Volume{}
 
 	if staleReplicaTimeout, ok := volOptions["staleReplicaTimeout"]; ok {
-        srt, err := strconv.Atoi(staleReplicaTimeout)
-        if err != nil {
-            return nil, errors.Wrap(err, "invalid parameter staleReplicaTimeout")
-        }
-        vol.StaleReplicaTimeout = int64(srt)
-    }
+		srt, err := strconv.Atoi(staleReplicaTimeout)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid parameter staleReplicaTimeout")
+		}
+		// Validation: Reject negative values
+		if srt < 0 {
+			return nil, errors.New("invalid parameter staleReplicaTimeout: must be greater than or equal to 0")
+		}
+		vol.StaleReplicaTimeout = int64(srt)
+	}
 
 	if share, ok := volOptions["share"]; ok {
 		isShared, err := strconv.ParseBool(share)

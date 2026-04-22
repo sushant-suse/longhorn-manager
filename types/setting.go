@@ -227,6 +227,7 @@ var (
 		SettingNamePriorityClass,
 		SettingNameDisableRevisionCounter,
 		SettingNameReplicaReplenishmentWaitInterval,
+		SettingNameStaleReplicaTimeout,
 		SettingNameConcurrentReplicaRebuildPerNodeLimit,
 		SettingNameReplicaRebuildConcurrentSyncLimit,
 		SettingNameConcurrentBackingImageCopyReplenishPerNodeLimit,
@@ -387,7 +388,7 @@ var (
 		SettingNamePriorityClass:                                            SettingDefinitionPriorityClass,
 		SettingNameDisableRevisionCounter:                                   SettingDefinitionDisableRevisionCounter,
 		SettingNameReplicaReplenishmentWaitInterval:                         SettingDefinitionReplicaReplenishmentWaitInterval,
-		SettingNameStaleReplicaTimeout:           							 SettingDefinitionStaleReplicaTimeout,
+		SettingNameStaleReplicaTimeout:                                      SettingDefinitionStaleReplicaTimeout,
 		SettingNameConcurrentReplicaRebuildPerNodeLimit:                     SettingDefinitionConcurrentReplicaRebuildPerNodeLimit,
 		SettingNameReplicaRebuildConcurrentSyncLimit:                        SettingDefinitionReplicaRebuildConcurrentSyncLimit,
 		SettingNameConcurrentBackingImageCopyReplenishPerNodeLimit:          SettingDefinitionConcurrentBackingImageCopyReplenishPerNodeLimit,
@@ -1074,20 +1075,20 @@ var (
 	}
 
 	SettingDefinitionStaleReplicaTimeout = SettingDefinition{
-        DisplayName: "Stale Replica Timeout",
-        Description: "In minutes. The timeout determines how long Longhorn will wait before cleaning up a stale replica " +
-            "that is no longer part of the volume engine.\n" +
-            "Setting this to 0 will cause the stale replicas to be cleaned up immediately.",
-        Category:           SettingCategoryGeneral,
-        Type:               SettingTypeInt,
-        Required:           true,
-        ReadOnly:           false,
-        DataEngineSpecific: false,
-        Default:            "2880",
-        ValueIntRange: map[string]int{
-            ValueIntRangeMinimum: 0,
-        },
-    }
+		DisplayName: "Stale Replica Timeout",
+		Description: "In minutes. The timeout determines how long Longhorn will wait before cleaning up a stale replica " +
+			"that is no longer part of the volume engine.\n" +
+			"Setting this to 0 will cause the stale replicas to be cleaned up immediately.",
+		Category:           SettingCategoryGeneral,
+		Type:               SettingTypeInt,
+		Required:           true,
+		ReadOnly:           false,
+		DataEngineSpecific: false,
+		Default:            "2880",
+		ValueIntRange: map[string]int{
+			ValueIntRangeMinimum: 0,
+		},
+	}
 
 	SettingDefinitionConcurrentReplicaRebuildPerNodeLimit = SettingDefinition{
 		DisplayName: "Concurrent Replica Rebuild Per Node Limit",
