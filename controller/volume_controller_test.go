@@ -1384,17 +1384,17 @@ func (s *TestSuite) TestShouldCleanUpFailedReplica(c *C) {
 			expected:                         false,
 		},
 		{
-			name: "Scenario 4: Rounding up seconds to minutes",
+			name: "Scenario 4: Rounding up seconds to minutes (Stable)",
 			volume: &longhorn.Volume{
 				Spec: longhorn.VolumeSpec{StaleReplicaTimeout: 0},
 			},
 			replica: &longhorn.Replica{
 				Spec: longhorn.ReplicaSpec{
-					FailedAt: now.Add(-2 * time.Minute).Format(time.RFC3339),
+					FailedAt: now.Add(-110 * time.Second).Format(time.RFC3339),
 				},
 			},
 			staleReplicaTimeoutSetting:       0,
-			replenishmentWaitIntervalSetting: 61, // rounds to 2 mins
+			replenishmentWaitIntervalSetting: 61,
 			expected:                         false,
 		},
 	}

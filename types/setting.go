@@ -1078,7 +1078,8 @@ var (
 		DisplayName: "Stale Replica Timeout",
 		Description: "In minutes. The timeout determines how long Longhorn will wait before cleaning up a stale replica " +
 			"that is no longer part of the volume engine.\n" +
-			"Setting this to 0 will cause the stale replicas to be cleaned up immediately.",
+			"The effective cleanup delay is the greater of this setting and the Replica Replenishment Wait Interval " +
+			"(converted to minutes and rounded up). Setting this to 0 allows cleanup as soon as that effective delay is reached.",
 		Category:           SettingCategoryGeneral,
 		Type:               SettingTypeInt,
 		Required:           true,

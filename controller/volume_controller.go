@@ -1062,11 +1062,12 @@ func (c *VolumeController) cleanupCorruptedOrStaleReplicas(v *longhorn.Volume, r
 	// Fetch settings once here to pass into shouldCleanUpFailedReplica (O(1) vs O(N) optimization)
 	staleReplicaTimeoutSetting, err := c.ds.GetSettingAsInt(types.SettingNameStaleReplicaTimeout)
 	if err != nil {
-		staleReplicaTimeoutSetting = 0
+		return errors.Wrapf(err, "failed to get setting %v for cleaning up corrupted or stale replicas", types.SettingNameStaleReplicaTimeout)
 	}
+
 	replenishmentWaitIntervalSetting, err := c.ds.GetSettingAsInt(types.SettingNameReplicaReplenishmentWaitInterval)
 	if err != nil {
-		replenishmentWaitIntervalSetting = 0
+		return errors.Wrapf(err, "failed to get setting %v for cleaning up corrupted or stale replicas", types.SettingNameReplicaReplenishmentWaitInterval)
 	}
 
 	// See comments for isSafeAsLastReplica for an explanation of why we call getSafeAsLastReplicaCount instead of
@@ -1101,9 +1102,9 @@ func (c *VolumeController) cleanupCorruptedOrStaleReplicas(v *longhorn.Volume, r
 
 		// Pass the pre-fetched settings as arguments
 		if c.shouldCleanUpFailedReplica(v, r, safeAsLastReplicaCount, int(staleReplicaTimeoutSetting), int(replenishmentWaitIntervalSetting)) {
-			log.WithField("replica", r.Name).Info("Cleaning up corrupted, staled replica")
+			log.WithField("replica", r.Name).Info("Cleaning up corrupted, stale replica")
 			if err := c.deleteReplica(r, rs); err != nil {
-				return errors.Wrapf(err, "failed to clean up staled replica %v", r.Name)
+				return errors.Wrapf(err, "failed to clean up stale replica %v", r.Name)
 			}
 		}
 	}
